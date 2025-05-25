@@ -1,5 +1,8 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
+const token = process.env.WRIKE_API_TOKEN;
 const url:string = 'https://www.wrike.com/api/v4/tasks?fields=[responsibleIds,parentIds]';
-const token: string = 'eyJ0dCI6InAiLCJhbGciOiJIUzI1NiIsInR2IjoiMSJ9.eyJkIjoie1wiYVwiOjY5MjAwNjAsXCJpXCI6OTQwMDQ2NSxcImNcIjo0NjkzNjM4LFwidVwiOjIxODk5MTMxLFwiclwiOlwiVVNcIixcInNcIjpbXCJXXCIsXCJGXCIsXCJJXCIsXCJVXCIsXCJLXCIsXCJDXCIsXCJEXCIsXCJNXCIsXCJBXCIsXCJMXCIsXCJQXCJdLFwielwiOltdLFwidFwiOjB9IiwiaWF0IjoxNzQ3MTQyNjg2fQ.8AlRh-aXsSxuESVPB-Ro_8vfCS6KnR8bXxJoqIwyZm0';
 
 interface task {
     id: string;
