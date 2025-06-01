@@ -1,6 +1,6 @@
 import dotenv from 'dotenv';
 dotenv.config();
-
+const fs = require("fs");
 const token = process.env.WRIKE_API_TOKEN;
 const url:string = 'https://www.wrike.com/api/v4/tasks?fields=[responsibleIds,parentIds]';
 
@@ -43,7 +43,13 @@ async function getTasks(): Promise<void> {
             ticket_url: value.permalink
         }));
 
-        console.log(mappedTasks);
+        fs.writeFile('tasks.json', JSON.stringify(mappedTasks, null, 2), (err:NodeJS.ErrnoException | null) => {
+            if (err) {
+                console.error('Error writing file:', err);
+            } else {
+                console.log('tasks.json has been saved!');
+            }
+        });
     } catch (e) {
         console.error('Fetch error:', e);
     }
