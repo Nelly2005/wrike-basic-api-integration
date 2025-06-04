@@ -15,22 +15,22 @@ interface mappedTask {
     ticket_url: string;
 }
 interface task {
-    "id": string,
-    "accountId": string,
-    "title": string,
-    "parentIds": string[],
-    "responsibleIds": string[],
-    "status": string,
-    "importance": string,
-    "createdDate": string,
-    "updatedDate": string,
-    "dates": {
-    "type": string
+    id: string,
+    accountId: string,
+    title: string,
+    parentIds: string[],
+    responsibleIds: string[],
+    status: string,
+    importance: string,
+    createdDate: string,
+    updatedDate: string,
+    dates: {
+    type: string
 },
-    "scope": string,
-    "customStatusId": string,
-    "permalink": string,
-    "priority": string
+    scope: string,
+    customStatusId: string,
+    permalink: string,
+    priority: string
 }
 
 let mappedTasks: mappedTask[] = [];
@@ -61,13 +61,8 @@ async function getTasks(): Promise<void> {
             ticket_url: value.permalink
         }));
 
-        fs.writeFile('tasks.json', JSON.stringify(mappedTasks, null, 2), (err: NodeJS.ErrnoException | null):void => {
-            if (err) {
-                console.error('Error writing file:', err);
-            } else {
-                console.log('tasks.json has been saved!');
-            }
-        });
+        await fs.promises.writeFile('tasks.json', JSON.stringify(mappedTasks, null, 2));
+        console.log('tasks.json has been saved!');
     } catch (e) {
         console.error('Fetch error:', e);
     }
