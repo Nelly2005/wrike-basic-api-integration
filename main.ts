@@ -8,10 +8,11 @@ const urlProjects: string = 'https://www.wrike.com/api/v4/folders';
 let mappedTasks: IMappedTask[] = [];
 let mappedContacts : IContact[] = [];
 let mappedProjects : IProject[] = [];
+let projectData: IProject[] = [];
 interface IMappedTask {
     id: string;
     name: string;
-    assignees: string[];
+    assignees: (string | IContact)[];
     status: string;
     collections: string[];
     created_at: string;
@@ -53,20 +54,26 @@ interface IProject {
     title: string,
     childIds: string[],
     scope: string,
+    tasks?: (IMappedTask | string)[]
 }
-
+interface IData{
+    projects: IProject[];
+}
+async function fetching(url:string){
+    const response:Response = await fetch(url, {
+        method: 'GET',
+        headers: {
+            'Authorization': `Bearer ${token}`
+        }
+    });
+    if (!response.ok) {
+        throw new Error(`Request failed with status ${response.status}`);
+    }
+    return response.json();
+}
 async function getContacts(){
     try {
-        const response:Response = await fetch(urlContacts, {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${token}`
-            }
-        });
-        if (!response.ok) {
-            throw new Error(`Request failed with status ${response.status}`);
-        }
-        const getResult:IContactsGetResult = await response.json();
+        const getResult:IContactsGetResult = await fetching(urlContacts);
         mappedContacts = getResult.data.map((value:IContact):IContact=>({
             id: value.id,
             firstName: value.firstName,
@@ -78,49 +85,27 @@ async function getContacts(){
         await writeTasksToFile('contacts.json', mappedContacts);
         console.log(`Successfully added contacts`);
     } catch (e) {
-        console.error('Fetch error:', e);
+        console.error('Fetch error (Contacts):', e);
     }
 }
 async function getProjects(){
     try {
-        const response:Response = await fetch(urlProjects, {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${token}`
-            }
-        });
-        if (!response.ok) {
-            throw new Error(`Request failed with status ${response.status}`);
-        }
-        const getResult:IProjectsGetResult = await response.json();
+        const getResult:IProjectsGetResult = await fetching(urlProjects);
         mappedProjects = getResult.data.map((value:IProject):IProject=>({
             id: value.id,
             title: value.title,
             childIds: value.childIds,
             scope: value.scope
         }))
-
         await writeTasksToFile('projects.json', mappedProjects);
         console.log(`Successfully added projects`);
     } catch (e) {
-        console.error('Fetch error:', e);
+        console.error('Fetch error (Projects):', e);
     }
 }
 async function getTasks() {
     try {
-        const response:Response = await fetch(urlTasks, {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${token}`
-            }
-        });
-
-        if (!response.ok) {
-            throw new Error(`Request failed with status ${response.status}`);
-        }
-
-        const getResult:ITasksGetResult = await response.json();
-
+        const getResult:ITasksGetResult = await fetching(urlTasks);
         mappedTasks = getResult.data.map((value): IMappedTask => ({
             id: value.id,
             name: value.title,
@@ -135,11 +120,11 @@ async function getTasks() {
         await writeTasksToFile('tasks.json', mappedTasks);
         console.log(`Successfully added tasks`);
     } catch (e) {
-        console.error('Fetch error:', e);
+        console.error('Fetch error (tasks):', e);
     }
 }
 
-function writeTasksToFile(filename: string, data: IMappedTask[] | IContact[]| IProject[]): Promise<void> {
+function writeTasksToFile(filename: string, data: IMappedTask[] | IContact[]| IProject[]| IData): Promise<void> {
     return new Promise((resolve, reject) => {
         fs.writeFile(filename, JSON.stringify(data, null, 2), (err) => {
             if (err) {
@@ -150,6 +135,51 @@ function writeTasksToFile(filename: string, data: IMappedTask[] | IContact[]| IP
         });
     })
 }
-getTasks();
-getContacts();
-getProjects();
+
+function makeData(){
+    let modifiedTasks = mappedTasks.map(task=>{
+        for(let i = 0; i < task.assignees.length; i++){
+            for(let j = 0; j < mappedContacts.length;j++){
+                if(task.assignees[i] === mappedContacts[j].id){
+                    //console.log(mappedContacts[j]);
+                    task.assignees[i] = mappedContacts[j];
+                    break;
+                }
+            }
+        }
+        return task;
+    })
+    //console.log(newTasks);
+    projectData = mappedProjects.map((project):IProject=>{
+        project.tasks =[];
+        for(let i = 0; i < modifiedTasks.length; i++){
+            for(let j = 0; j < modifiedTasks[i].collections.length; j++){
+                if(modifiedTasks[i].collections[j] === project.id){
+                    project.tasks.push(modifiedTasks[i]);
+                }
+            }
+        }
+        return project;
+    });
+    const data : IData = {
+        projects: projectData,
+    }
+    writeTasksToFile('data.json', data)
+        .then(()=>{
+            console.log(`Successfully added data.json`);
+        });
+}
+
+Promise.all([getTasks(), getProjects(),getContacts()])
+    .then(()=>makeData());
+
+
+
+
+
+
+
+
+
+
+
