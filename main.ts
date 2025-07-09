@@ -231,7 +231,7 @@ function makeData() {
         .then(() => {
             console.log(`Successfully added data.json`);
         });
-
+}
 Promise.all([getTasks(), getProjects(), getContacts()])
     .then(() => makeData());
 
