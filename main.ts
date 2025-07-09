@@ -1,24 +1,28 @@
 import dotenv from 'dotenv';
+
 dotenv.config();
 import fs from 'fs';
+
 const token: string | undefined = process.env.WRIKE_API_TOKEN;
 const urlTasks: string = 'https://www.wrike.com/api/v4/tasks?fields=[responsibleIds,parentIds]';
 const urlContacts: string = 'https://www.wrike.com/api/v4/contacts';
 const urlProjects: string = 'https://www.wrike.com/api/v4/folders';
 let mappedTasks: IMappedTask[] = [];
-let mappedContacts : IContact[] = [];
-let mappedProjects : IProject[] = [];
-let projectData: IProject[] = [];
+let mappedContacts: IContact[] = [];
+let mappedProjects: IProject[] = [];
+
 interface IMappedTask {
     id: string;
     name: string;
-    assignees: (string | IContact)[];
+    assignees?: string[];
     status: string;
     collections: string[];
     created_at: string;
     updated_at: string;
     ticket_url: string;
+    contacts?: IContact[];
 }
+
 interface ITask {
     id: string,
     title: string,
@@ -29,19 +33,22 @@ interface ITask {
     updatedDate: string,
     permalink: string
 }
+
 interface ITasksGetResult {
     kind: "tasks",
-    data : ITask[]
+    data: ITask[]
 }
 
 interface IContactsGetResult {
     kind: "accounts",
-    data : IContact[]
+    data: IContact[]
 }
+
 interface IProjectsGetResult {
     kind: "folderTree",
-    data : IProject[]
+    data: IProject[]
 }
+
 interface IContact {
     id: string,
     firstName: string,
@@ -49,6 +56,7 @@ interface IContact {
     type: string,
     email: string,
 }
+
 interface IProject {
     id: string,
     title: string,
@@ -56,11 +64,23 @@ interface IProject {
     scope: string,
     tasks?: (IMappedTask | string)[]
 }
-interface IData{
+
+interface IData {
     projects: IProject[];
 }
-async function fetching(url:string){
-    const response:Response = await fetch(url, {
+
+interface IContactObject {
+    [key: string]: IContact;
+}
+
+interface IProjectObject {
+    [key: string]: IProject;
+}
+
+type WritingData = IMappedTask[] | IContact[] | IProject[] | IData;
+
+async function fetching(url: string) {
+    const response: Response = await fetch(url, {
         method: 'GET',
         headers: {
             'Authorization': `Bearer ${token}`
@@ -71,10 +91,11 @@ async function fetching(url:string){
     }
     return response.json();
 }
-async function getContacts(){
+
+async function getContacts() {
     try {
-        const getResult:IContactsGetResult = await fetching(urlContacts);
-        mappedContacts = getResult.data.map((value:IContact):IContact=>({
+        const getResult: IContactsGetResult = await fetching(urlContacts);
+        mappedContacts = getResult.data.map((value: IContact): IContact => ({
             id: value.id,
             firstName: value.firstName,
             lastName: value.lastName,
@@ -88,10 +109,11 @@ async function getContacts(){
         console.error('Fetch error (Contacts):', e);
     }
 }
-async function getProjects(){
+
+async function getProjects() {
     try {
-        const getResult:IProjectsGetResult = await fetching(urlProjects);
-        mappedProjects = getResult.data.map((value:IProject):IProject=>({
+        const getResult: IProjectsGetResult = await fetching(urlProjects);
+        mappedProjects = getResult.data.map((value: IProject): IProject => ({
             id: value.id,
             title: value.title,
             childIds: value.childIds,
@@ -103,9 +125,10 @@ async function getProjects(){
         console.error('Fetch error (Projects):', e);
     }
 }
+
 async function getTasks() {
     try {
-        const getResult:ITasksGetResult = await fetching(urlTasks);
+        const getResult: ITasksGetResult = await fetching(urlTasks);
         mappedTasks = getResult.data.map((value): IMappedTask => ({
             id: value.id,
             name: value.title,
@@ -124,7 +147,7 @@ async function getTasks() {
     }
 }
 
-function writeTasksToFile(filename: string, data: IMappedTask[] | IContact[]| IProject[]| IData): Promise<void> {
+function writeTasksToFile(filename: string, data: WritingData): Promise<void> {
     return new Promise((resolve, reject) => {
         fs.writeFile(filename, JSON.stringify(data, null, 2), (err) => {
             if (err) {
@@ -136,42 +159,82 @@ function writeTasksToFile(filename: string, data: IMappedTask[] | IContact[]| IP
     })
 }
 
-function makeData(){
-    let modifiedTasks = mappedTasks.map(task=>{
-        for(let i = 0; i < task.assignees.length; i++){
-            for(let j = 0; j < mappedContacts.length;j++){
-                if(task.assignees[i] === mappedContacts[j].id){
-                    //console.log(mappedContacts[j]);
-                    task.assignees[i] = mappedContacts[j];
-                    break;
-                }
+// function makeData(){
+//     let modifiedTasks = mappedTasks.map(task=>{
+//         for(let i = 0; i < task.assignees.length; i++){
+//             for(let j = 0; j < mappedContacts.length;j++){
+//                 if(task.assignees[i] === mappedContacts[j].id){
+//                     task.assignees[i] = mappedContacts[j];
+//                     break;
+//                 }
+//             }
+//         }
+//         return task;
+//     })
+//     //console.log(newTasks);
+//     projectData = mappedProjects.map((project):IProject=>{
+//         project.tasks =[];
+//         for(let i = 0; i < modifiedTasks.length; i++){
+//             for(let j = 0; j < modifiedTasks[i].collections.length; j++){
+//                 if(modifiedTasks[i].collections[j] === project.id){
+//                     project.tasks.push(modifiedTasks[i]);
+//                 }
+//             }
+//         }
+//         return project;
+//     });
+//     const data : IData = {
+//         projects: projectData,
+//     }
+//     writeTasksToFile('data.json', data)
+//         .then(()=>{
+//             console.log(`Successfully added data.json`);
+//         });
+// }
+
+
+function makeData() {
+    const contactObject: IContactObject = {};
+    for (let i = 0; i < mappedContacts.length; i++) {
+        contactObject[mappedContacts[i].id] = mappedContacts[i];
+    }
+    let modifiedTasks = mappedTasks.map(task => {
+        task.contacts = [];
+        if (task.assignees) {
+            for (let i = 0; i < task.assignees.length; i++) {
+                const contactID = task.assignees[i];
+                task.contacts.push(contactObject[contactID]);
             }
         }
+        delete task.assignees;
         return task;
     })
-    //console.log(newTasks);
-    projectData = mappedProjects.map((project):IProject=>{
-        project.tasks =[];
-        for(let i = 0; i < modifiedTasks.length; i++){
-            for(let j = 0; j < modifiedTasks[i].collections.length; j++){
-                if(modifiedTasks[i].collections[j] === project.id){
-                    project.tasks.push(modifiedTasks[i]);
-                }
+    //console.log(JSON.stringify(modifiedTasks,null,2));
+
+    const projectObject: IProjectObject = {};
+    for (let i = 0; i < mappedProjects.length; i++) {
+        projectObject[mappedProjects[i].id] = mappedProjects[i];
+        mappedProjects[i].tasks = [];
+    }
+    for (let i = 0; i < modifiedTasks.length; i++) {
+        for (let j = 0; j < modifiedTasks[i].collections.length; j++) {
+            const objectID = modifiedTasks[i].collections[j];
+            if (projectObject[objectID].tasks) {
+                projectObject[objectID].tasks.push(modifiedTasks[i]);
             }
         }
-        return project;
-    });
-    const data : IData = {
-        projects: projectData,
+    }
+    const data: IData = {
+        projects: mappedProjects
     }
     writeTasksToFile('data.json', data)
-        .then(()=>{
+        .then(() => {
             console.log(`Successfully added data.json`);
         });
-}
 
-Promise.all([getTasks(), getProjects(),getContacts()])
-    .then(()=>makeData());
+Promise.all([getTasks(), getProjects(), getContacts()])
+    .then(() => makeData());
+
 
 
 
